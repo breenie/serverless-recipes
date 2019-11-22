@@ -1,0 +1,56 @@
+service: sns-fanout
+
+provider:
+  name: aws
+  runtime: nodejs10.x
+  region: eu-west-1
+
+
+functions:
+  hello:
+    handler: hello.handler
+    events:
+      - sns: 
+          arn: !Ref Topic
+          topicName: Fanout
+
+  goodbye:
+    handler: goodbye.handler
+    events:
+      - sns: 
+          arn: !Ref Topic
+          topicName: Fanout
+
+resources:
+  Description: Example S3 event fanout to an SNS topic
+  Resources:
+    Topic:
+      Type: AWS::SNS::Topic
+      Properties: 
+        TopicName: Fanout
+
+    Bucket:
+      Type: AWS::S3::Bucket
+      DependsOn: Topic
+      Properties:
+        NotificationConfiguration:
+          TopicConfigurations:
+            - Event: s3:ObjectCreated:*
+              Topic: !Ref Topic
+
+    TopicPolicy:
+      Type: AWS::SNS::TopicPolicy
+      Properties:
+        PolicyDocument:
+          Statement: 
+            - Effect: "Allow"
+              Action:
+                - "SNS:Publish"
+              Principal: 
+                Service: s3.amazonaws.com
+              Resource: !Ref Topic
+              Condition:
+                ArnLike:
+                  "aws:SourceArn": !GetAtt [Bucket, Arn]
+        Topics:
+          - !Ref Topic
